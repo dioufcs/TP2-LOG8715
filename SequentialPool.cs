@@ -1,29 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
 
-public class SequentialPool : IEquatable<SequentialPool>
+/*
+    Classe représentant un allocateur de type Sequential Pool
+    La classe contient les attributs suivants :
+    _ un array de int représentant la table d'indirection
+    _ une List de Components représentant le Sequential Pool
+*/
+
+public class SequentialPool
 {
-    public uint hashCode;
+    // Table d'indirection : contient la valeur de l'index de chaque component dans le Sequential Pool 
     public int?[] IndirectionTable;
-    public int index;
+
+    // Sequential Pool : Contient une liste de Components
     public List<IComponent> sequentialPool;
 
-    //public int?[] IndirectionTable
-    //{
-    //    get => IndirectionTable;
-    //}
-
-    //public List<IComponent> sequentialPool
-    //{
-    //    get => sequentialPool;
-    //}
-
-    public SequentialPool(uint hashCode, int index)
+    public SequentialPool()
     {
-        this.hashCode = hashCode;
-        this.index = index;
+        // Crée une nouvelle table d'indirection et un sequential pool
+
+        // La table d'indirection sera de la taille du nombre d'entités maxmimal
+        // Toutes les valeurs de la tables seront initialisées à null
         IndirectionTable = new int?[ComponentsManager.maxEntities];
+
+        // Liste de Components vide à la création
         sequentialPool = new List<IComponent>();
     }
 
@@ -31,14 +32,14 @@ public class SequentialPool : IEquatable<SequentialPool>
     {
         if (IndirectionTable[entityID.id] == null)
         {
+            // Ajout d'un élément à la queue de la sequential pool
             IndirectionTable[entityID.id] = (int)sequentialPool.Count;
             sequentialPool.Add(component);
         }
-        else
+        else // Modification d'un component
         {
             int componentIndex = (int)IndirectionTable[entityID.id];
             sequentialPool[componentIndex] = component;
-
         }
     }
 
@@ -54,6 +55,7 @@ public class SequentialPool : IEquatable<SequentialPool>
 
         if (componentIndex != componentsCount - 1)
         {
+            // Retrait se fait en swappant avec le dernier élément
             sequentialPool[componentIndex] = sequentialPool[componentsCount - 1];
             IndirectionTable[toReplace] = componentIndex;
         }
@@ -63,21 +65,15 @@ public class SequentialPool : IEquatable<SequentialPool>
     public IComponent GetComponent(EntityComponent entityID)
     {
         int componentIndex = (int)IndirectionTable[entityID.id];
-        //Debug.Log( componentIndex.ToString() + " " + sequentialPool.Count.ToString());
-        //Debug.Log(sequentialPool[0].GetType().Name);
         return sequentialPool[componentIndex];
 
     }
 
     public void Clear()
     {
-        Array.Clear(IndirectionTable, 0, 1100);
-        //IndirectionTable = new int?[ComponentsManager.maxEntities];
+        Array.Clear(IndirectionTable, 0, ComponentsManager.maxEntities);
         sequentialPool.Clear();
     }
 
-    public bool Equals(SequentialPool other)
-    {
-        return this.hashCode.Equals(other.hashCode);
-    }
+
 }

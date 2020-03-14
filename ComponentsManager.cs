@@ -42,16 +42,10 @@ internal class ComponentsManager : Singleton<ComponentsManager>
     private AllComponents _allComponents = new AllComponents();
 
     private List<uint> hashCodes = new List<uint>();
-    private SequentialPool _sequentialPool = new InnerType(0, 0);
-    //private SequentialPool _sequentialPool1 = new InnerType(0,0);
-    //private SequentialPool _sequentialPool2 = new InnerType(0,0);
-    //private SequentialPool _sequentialPool3 = new InnerType(0,0);
-    //private SequentialPool _sequentialPool4 = new InnerType(0,0);
-    //private List<IComponent> allEntities;
-    private int count = 0;
 
+    private List<IComponent> allEntities;
 
-    public const int maxEntities = 1100;
+    public const int maxEntities = 2000;
 
     public void DebugPrint()
     {
@@ -61,8 +55,8 @@ internal class ComponentsManager : Singleton<ComponentsManager>
         {
             toPrint += $"{type}: \n";
 #if !BAD_PERF
-            count = _allComponents.Count;
-            for (var i = 0; i < count; i++)
+            var count  = _allComponents.Count;
+            for (var i = 0; i < count ; i++)
             {
 #else
             foreach (var component in type.Value)
@@ -71,7 +65,7 @@ internal class ComponentsManager : Singleton<ComponentsManager>
 #if BAD_PERF
                 toPrint += $"\t{component.Key}: {component.Value}\n";
 #else
-                    toPrint += $"\t{_allComponents[i].hashCode}: {_allComponents[i].sequentialPool}\n";
+                    toPrint += $"\t{_allComponents[i]}: {_allComponents[i].sequentialPool}\n";
 #endif
                 }
                 toPrint += "\n";
@@ -83,29 +77,23 @@ internal class ComponentsManager : Singleton<ComponentsManager>
     // CRUD
     public void SetComponent<T>(EntityComponent entityID, IComponent component) where T : IComponent
     {
-        _sequentialPool.hashCode = TypeRegistry<T>.typeID;
         if (!hashCodes.Contains(TypeRegistry<T>.typeID))
         {
-            //_allComponents[TypeRegistry<T>.typeID] = new Dictionary<uint, IComponent>();
-            _allComponents.Add(new InnerType(TypeRegistry<T>.typeID, _allComponents.Count));
+            _allComponents.Add(new InnerType());
             hashCodes.Add(TypeRegistry<T>.typeID);
         }
         _allComponents[hashCodes.IndexOf(TypeRegistry<T>.typeID)].SetComponent(entityID, component);   
     }
     public void RemoveComponent<T>(EntityComponent entityID) where T : IComponent
     {
-        _sequentialPool.hashCode = TypeRegistry<T>.typeID;
         _allComponents[hashCodes.IndexOf(TypeRegistry<T>.typeID)].RemoveComponent(entityID);
     }
     public T GetComponent<T>(EntityComponent entityID) where T : IComponent
     {
-        //_sequentialPool.hashCode = TypeRegistry<T>.typeID;
-        //this.DebugPrint();
         return (T)_allComponents[hashCodes.IndexOf(TypeRegistry<T>.typeID)].GetComponent(entityID);
     }
     public bool TryGetComponent<T>(EntityComponent entityID, out T component) where T : IComponent
     {
-        _sequentialPool.hashCode = TypeRegistry<T>.typeID;
         if (hashCodes.Contains(TypeRegistry<T>.typeID))
         {
             if (_allComponents[hashCodes.IndexOf(TypeRegistry<T>.typeID)].IndirectionTable[entityID.id] != null)
@@ -120,7 +108,6 @@ internal class ComponentsManager : Singleton<ComponentsManager>
 
     public bool EntityContains<T>(EntityComponent entity) where T : IComponent
     {
-        _sequentialPool.hashCode = TypeRegistry<T>.typeID;
         if (_allComponents[hashCodes.IndexOf(TypeRegistry<T>.typeID)].IndirectionTable[entity.id] != null)
             return true;
         return false;
@@ -128,10 +115,9 @@ internal class ComponentsManager : Singleton<ComponentsManager>
 
     public void ClearComponents<T>() where T : IComponent
     {
-        _sequentialPool.hashCode = TypeRegistry<T>.typeID;
         if (!hashCodes.Contains(TypeRegistry<T>.typeID))
         {
-            _allComponents.Add(new InnerType(TypeRegistry<T>.typeID, _allComponents.Count));
+            _allComponents.Add(new InnerType());
             hashCodes.Add(TypeRegistry<T>.typeID);
         }
         else
@@ -142,104 +128,84 @@ internal class ComponentsManager : Singleton<ComponentsManager>
 
     public void ForEach<T1>(Action<EntityComponent, T1> lambda) where T1 : IComponent
     {
-        //// Debug.Log("T1");
-
-        //_sequentialPool.hashCode = TypeRegistry<EntityComponent>.typeID;
-        //_sequentialPool1.hashCode = TypeRegistry<T1>.typeID;
-
-        var allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
-        count = allEntities.Count;
+        allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
 
         int IndexT1 = hashCodes.IndexOf(TypeRegistry<T1>.typeID);
 
-        for (var i=0; i< count; i++)
-        {      
-            if (_allComponents[IndexT1].IndirectionTable[((EntityComponent)allEntities[i]).id] == null)
+        foreach(EntityComponent entity in allEntities)
+        {
+            if (_allComponents[IndexT1].IndirectionTable[entity.id] == null)
             {
                 continue;
             }
-            lambda((EntityComponent)allEntities[i], (T1)_allComponents[IndexT1].GetComponent((EntityComponent)allEntities[i]));
+            lambda(entity, (T1)_allComponents[IndexT1].GetComponent(entity));
         }
     }
 
     public void ForEach<T1, T2>(Action<EntityComponent, T1, T2> lambda) where T1 : IComponent where T2 : IComponent
     {
-        ////  Debug.Log("T12");
-        //_sequentialPool.hashCode = TypeRegistry<EntityComponent>.typeID;
-        //_sequentialPool1.hashCode = TypeRegistry<T1>.typeID;
-        //_sequentialPool2.hashCode = TypeRegistry<T2>.typeID;
-
-        var allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
-        count = allEntities.Count;
+        allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
 
         int IndexT1 = hashCodes.IndexOf(TypeRegistry<T1>.typeID);
         int IndexT2 = hashCodes.IndexOf(TypeRegistry<T2>.typeID);
 
 
-        for (var i = 0; i < count; i++)
+        foreach (EntityComponent entity in allEntities)
         {
-            if (_allComponents[IndexT1].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT2].IndirectionTable[((EntityComponent)allEntities[i]).id] == null
+            if (_allComponents[IndexT1].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT2].IndirectionTable[entity.id] == null
                 )
             {
                 continue;
             }
-            lambda((EntityComponent)allEntities[i], (T1)_allComponents[IndexT1].GetComponent((EntityComponent)allEntities[i]), (T2)_allComponents[IndexT2].GetComponent((EntityComponent)allEntities[i]));
+            lambda(entity, (T1)_allComponents[IndexT1].GetComponent(entity), (T2)_allComponents[IndexT2].GetComponent(entity));
         }
 
     }
 
     public void ForEach<T1, T2, T3>(Action<EntityComponent, T1, T2, T3> lambda) where T1 : IComponent where T2 : IComponent where T3 : IComponent
     {
-        //// Debug.Log("T123");
-        //_sequentialPool.hashCode = TypeRegistry<EntityComponent>.typeID;
-        //_sequentialPool1.hashCode = TypeRegistry<T1>.typeID;
-        //_sequentialPool2.hashCode = TypeRegistry<T2>.typeID;
-        //_sequentialPool3.hashCode = TypeRegistry<T3>.typeID;
-
-        var allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
-        count = allEntities.Count;
+        allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
 
         int IndexT1 = hashCodes.IndexOf(TypeRegistry<T1>.typeID);
         int IndexT2 = hashCodes.IndexOf(TypeRegistry<T2>.typeID);
         int IndexT3 = hashCodes.IndexOf(TypeRegistry<T3>.typeID);
 
-        for (var i = 0; i < count; i++)
+        foreach (EntityComponent entity in allEntities)
         {
 
-            if (_allComponents[IndexT1].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT2].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT3].IndirectionTable[((EntityComponent)allEntities[i]).id] == null
+            if (_allComponents[IndexT1].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT2].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT3].IndirectionTable[entity.id] == null
                 )
             {
                 continue;
             }
-            lambda(((EntityComponent)allEntities[i]), (T1)_allComponents[IndexT1].GetComponent(((EntityComponent)allEntities[i])), (T2)_allComponents[IndexT2].GetComponent(((EntityComponent)allEntities[i])), (T3)_allComponents[IndexT3].GetComponent(((EntityComponent)allEntities[i])));
+            lambda(entity, (T1)_allComponents[IndexT1].GetComponent(entity), (T2)_allComponents[IndexT2].GetComponent(entity), (T3)_allComponents[IndexT3].GetComponent(entity));
         }
 
     }
 
     public void ForEach<T1, T2, T3, T4>(Action<EntityComponent, T1, T2, T3, T4> lambda) where T1 : IComponent where T2 : IComponent where T3 : IComponent where T4 : IComponent
     {
-        var allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
-        count = allEntities.Count;
+        allEntities = _allComponents[hashCodes.IndexOf(TypeRegistry<EntityComponent>.typeID)].sequentialPool;
 
         int IndexT1 = hashCodes.IndexOf(TypeRegistry<T1>.typeID);
         int IndexT2 = hashCodes.IndexOf(TypeRegistry<T2>.typeID);
         int IndexT3 = hashCodes.IndexOf(TypeRegistry<T3>.typeID);
         int IndexT4 = hashCodes.IndexOf(TypeRegistry<T4>.typeID);
 
-        for (var i = 0; i < count; i++)
+        foreach (EntityComponent entity in allEntities)
         {
-            if (_allComponents[IndexT1].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT2].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT3].IndirectionTable[((EntityComponent)allEntities[i]).id] == null ||
-                _allComponents[IndexT4].IndirectionTable[((EntityComponent)allEntities[i]).id] == null
+            if (_allComponents[IndexT1].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT2].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT3].IndirectionTable[entity.id] == null ||
+                _allComponents[IndexT4].IndirectionTable[entity.id] == null
                 )
             {
                 continue;
             }
-            lambda(((EntityComponent)allEntities[i]), (T1)_allComponents[IndexT1].GetComponent(((EntityComponent)allEntities[i])), (T2)_allComponents[IndexT2].GetComponent(((EntityComponent)allEntities[i])), (T3)_allComponents[IndexT3].GetComponent(((EntityComponent)allEntities[i])), (T4)_allComponents[IndexT4].GetComponent(((EntityComponent)allEntities[i])));
+            lambda(entity, (T1)_allComponents[IndexT1].GetComponent(entity), (T2)_allComponents[IndexT2].GetComponent(entity), (T3)_allComponents[IndexT3].GetComponent(entity), (T4)_allComponents[IndexT4].GetComponent(entity));
         }
 
     }
